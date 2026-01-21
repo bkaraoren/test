@@ -1,0 +1,13 @@
+---
+- name: Materialize Known Hosts File
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Write known_hosts from Credential Env Var
+      ansible.builtin.copy:
+        content: "{{ lookup('env', 'AAP_INJECTED_KNOWN_HOSTS') }}"
+        dest: "/tmp/jit_known_hosts"
+        mode: '0600'
+      # Only run if the credential was actually provided
+      when: lookup('env', 'AAP_INJECTED_KNOWN_HOSTS') != ""
