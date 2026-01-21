@@ -1,0 +1,33 @@
+---
+- name: Production Deployment
+  hosts: all
+  gather_facts: false # Delay facts until we have the key
+  vars:
+    # Define a temp path using the unique Job ID so parallel jobs don't clash
+    temp_known_hosts: "/tmp/known_hosts_{{ awx_job_id | default('local') }}"
+
+  pre_tasks:
+    # 1. Materialize the variable into a file
+    - name: Create Ephemeral Known Hosts File
+      ansible.builtin.copy:
+        content: "{{ lookup('env', 'SSH_KNOWN_HOSTS_CONTENT') }}"
+        dest: "{{ temp_known_hosts }}"
+        mode: '0600'
+      delegate_to: localhost
+      changed_when: false
+
+  tasks:
+    # 2. Run your automation using the ephemeral file
+    - name: Ping Hosts
+      ansible.builtin.ping:
+      vars:
+        ansible_ssh_common_args: '-o UserKnownHostsFile={{ temp_known_hosts }} -o StrictHostKeyChecking=yes'
+
+  # 3. (Optional) Cleanup - though EEs are destroyed anyway, this is good hygiene
+  post_tasks:
+    - name: Remove Ephemeral File
+      ansible.builtin.file:
+        path: "{{ temp_known_hosts }}"
+        state: absent
+      delegate_to: localhost
+      changed_when: false
